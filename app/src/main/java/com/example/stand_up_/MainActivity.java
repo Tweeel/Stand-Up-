@@ -1,7 +1,14 @@
 package com.example.stand_up_;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.NotificationCompat;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.widget.CompoundButton;
 import android.widget.Toast;
@@ -9,12 +16,20 @@ import android.widget.ToggleButton;
 
 public class MainActivity extends AppCompatActivity {
 
+    private NotificationManager mNotificationManager;
+    //member constants for the notification ID
+    private static final int NOTIFICATION_ID = 0;
+    //member constants for the notification channel ID
+    private static final String PRIMARY_CHANNEL_ID =
+            "primary_notification_channel";
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-//        Find the ToggleButton by id.
+        //Find the ToggleButton by id.
         ToggleButton alarmToggle = findViewById(R.id.alarmToggle);
         alarmToggle.setOnCheckedChangeListener(
                 new CompoundButton.OnCheckedChangeListener() {
@@ -23,9 +38,12 @@ public class MainActivity extends AppCompatActivity {
                                                  boolean isChecked) {
                         String toastMessage;
                         if(isChecked){
+                            deliverNotification(MainActivity.this);
                             //Set the toast message for the "on" case.
                             toastMessage = "Stand Up Alarm On!";
                         } else {
+                            //Cancel notification if the alarm is turned off
+                            mNotificationManager.cancelAll();
                             //Set the toast message for the "off" case.
                             toastMessage = "Stand Up Alarm Off!";
                         }
@@ -36,5 +54,62 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
 
+        //initialize mNotificationManager using getSystemService()
+        mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        createNotificationChannel();
     }
+
+    /**
+     * Creates a Notification channel, for OREO and higher.
+     */
+    public void createNotificationChannel() {
+
+        // Create a notification manager object.
+        mNotificationManager =
+                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+
+        // Notification channels are only available in OREO and higher.
+        // So, add a check on SDK version.
+        if (android.os.Build.VERSION.SDK_INT >=
+                android.os.Build.VERSION_CODES.O) {
+
+            // Create the NotificationChannel with all the parameters.
+            NotificationChannel notificationChannel = new NotificationChannel
+                    (PRIMARY_CHANNEL_ID,
+                            "Stand up notification",
+                            NotificationManager.IMPORTANCE_HIGH);
+
+            notificationChannel.enableLights(true);
+            notificationChannel.setLightColor(Color.RED);
+            notificationChannel.enableVibration(true);
+            notificationChannel.setDescription
+                    ("Notifies every 15 minutes to stand up and walk");
+            mNotificationManager.createNotificationChannel(notificationChannel);
+        }
+    }
+
+    private void deliverNotification(Context context) {
+        //create an Intent that you will use for the notification content intent.
+        Intent contentIntent = new Intent(context, MainActivity.class);
+
+        //create a PendingIntent from the content intent. Use the getActivity() method,
+        // passing in the notification ID and using the FLAG_UPDATE_CURRENT flag:
+        PendingIntent contentPendingIntent = PendingIntent.getActivity
+                (context, NOTIFICATION_ID, contentIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        //build a notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, PRIMARY_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stand_up_foreground)
+                .setContentTitle("Stand Up Alert")
+                .setContentText("You should stand up and walk around now!")
+                .setContentIntent(contentPendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setDefaults(NotificationCompat.DEFAULT_ALL);
+
+        //use the NotificationManager to deliver the notification
+        mNotificationManager.notify(NOTIFICATION_ID, builder.build());
+
+    }
+
 }
