@@ -3,6 +3,7 @@ package com.example.stand_up_;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationCompat;
 
+import android.app.AlarmManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -10,6 +11,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.widget.CompoundButton;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -20,8 +22,7 @@ public class MainActivity extends AppCompatActivity {
     //member constants for the notification ID
     private static final int NOTIFICATION_ID = 0;
     //member constants for the notification channel ID
-    private static final String PRIMARY_CHANNEL_ID =
-            "primary_notification_channel";
+    private static final String PRIMARY_CHANNEL_ID = "primary_notification_channel";
 
 
     @Override
@@ -29,33 +30,59 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //initialize mNotificationManager using getSystemService()
+        mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+
         //Find the ToggleButton by id.
         ToggleButton alarmToggle = findViewById(R.id.alarmToggle);
+
+        //an Intent called notifyIntent. Pass in the context and AlarmReceiver class
+        Intent notifyIntent = new Intent(this, AlarmReceiver.class);
+
+        boolean alarmUp = (PendingIntent.getBroadcast(this, NOTIFICATION_ID,
+                notifyIntent, PendingIntent.FLAG_NO_CREATE) != null);
+        alarmToggle.setChecked(alarmUp);
+
+        PendingIntent notifyPendingIntent = PendingIntent.getBroadcast
+                (this, NOTIFICATION_ID, notifyIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        //Initialize the AlarmManager
+        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+
         alarmToggle.setOnCheckedChangeListener(
                 new CompoundButton.OnCheckedChangeListener() {
                     @Override
                     public void onCheckedChanged(CompoundButton compoundButton,
                                                  boolean isChecked) {
                         String toastMessage;
-                        if(isChecked){
-                            deliverNotification(MainActivity.this);
+                        if (isChecked) {
+                            long repeatInterval = AlarmManager.INTERVAL_FIFTEEN_MINUTES;
+                            long triggerTime = SystemClock.elapsedRealtime() + repeatInterval;
+                            // If the Toggle is turned on, set the repeating alarm with
+                            // a 15 minute interval.
+                            if (alarmManager != null) {
+                                alarmManager.setInexactRepeating
+                                        (AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                                                triggerTime, repeatInterval,
+                                                notifyPendingIntent);
+                            }
                             //Set the toast message for the "on" case.
                             toastMessage = "Stand Up Alarm On!";
                         } else {
                             //Cancel notification if the alarm is turned off
                             mNotificationManager.cancelAll();
+                            if (alarmManager != null) alarmManager.cancel(notifyPendingIntent);
                             //Set the toast message for the "off" case.
                             toastMessage = "Stand Up Alarm Off!";
                         }
 
                         //Show a toast to say the alarm is turned on or off.
-                        Toast.makeText(MainActivity.this, toastMessage,Toast.LENGTH_SHORT)
+                        Toast.makeText(MainActivity.this, toastMessage, Toast.LENGTH_SHORT)
                                 .show();
                     }
                 });
 
-        //initialize mNotificationManager using getSystemService()
-        mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        //Creates a Notification channel
         createNotificationChannel();
     }
 
